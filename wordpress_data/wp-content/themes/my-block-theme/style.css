@@ -1,0 +1,175 @@
+/*
+Theme Name: My Block Theme
+Theme URI: https://example.com/my-block-theme
+Author: WordPress Workspace
+Author URI: https://example.com
+Description: A minimal block theme for a readable media-style article index.
+Requires at least: 6.5
+Tested up to: 6.9
+Requires PHP: 7.4
+Version: 0.1.0
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: my-block-theme
+*/
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+a {
+  text-underline-offset: 0.18em;
+}
+
+.site-shell {
+  min-height: 100vh;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.site-footer {
+  border-top: 1px solid var(--wp--preset--color--line);
+}
+
+.index-hero {
+  position: relative;
+}
+
+.index-hero::before {
+  background: var(--wp--preset--color--highlight);
+  border-radius: 999px;
+  content: "";
+  display: block;
+  height: 4px;
+  margin-bottom: var(--wp--preset--spacing--40);
+  width: 56px;
+}
+
+.article-list .wp-block-post {
+  background: var(--wp--preset--color--surface);
+  border: 1px solid var(--wp--preset--color--line);
+  border-left: 4px solid var(--wp--preset--color--accent);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(31, 36, 40, 0.06);
+  padding: var(--wp--preset--spacing--50);
+}
+
+.article-list .wp-block-post:last-child {
+  border-bottom: 1px solid var(--wp--preset--color--line);
+}
+
+.article-list .wp-block-post-title a {
+  text-decoration-thickness: 0.06em;
+  overflow-wrap: anywhere;
+}
+
+.article-list .wp-block-post-title a:hover {
+  color: var(--wp--preset--color--accent);
+}
+
+.article-list .wp-block-post-excerpt__excerpt {
+  margin-top: 0;
+}
+
+.article-list .wp-block-post-terms a {
+  background: var(--wp--preset--color--surface);
+  border: 1px solid var(--wp--preset--color--line);
+  border-radius: 999px;
+  color: var(--wp--preset--color--contrast);
+  display: inline-block;
+  font-size: var(--wp--preset--font-size--small);
+  margin: 0 0.35rem 0.35rem 0;
+  padding: 0.18rem 0.6rem;
+  text-decoration: none;
+}
+
+.article-list .wp-block-post-terms a:hover {
+  border-color: var(--wp--preset--color--accent);
+  color: var(--wp--preset--color--accent);
+}
+
+.wp-block-query-pagination {
+  align-items: center;
+}
+
+.wp-block-query-pagination a,
+.wp-block-query-pagination-numbers .page-numbers {
+  border: 1px solid var(--wp--preset--color--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  text-decoration: none;
+}
+
+.wp-block-query-pagination a:hover,
+.wp-block-query-pagination-numbers .current {
+  background: var(--wp--preset--color--contrast);
+  border-color: var(--wp--preset--color--contrast);
+  color: var(--wp--preset--color--base);
+}
+
+@media (max-width: 700px) {
+  body {
+    --wp--style--root--padding-left: 1rem;
+    --wp--style--root--padding-right: 1rem;
+  }
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(251, 250, 247, 0.96);
+  }
+
+  .site-header .wp-block-navigation {
+    justify-content: flex-start;
+  }
+
+  .index-hero {
+    margin-bottom: var(--wp--preset--spacing--60) !important;
+  }
+
+  .index-hero .wp-block-heading {
+    font-size: 2rem !important;
+    line-height: 1.14 !important;
+  }
+
+  .index-hero .has-large-font-size {
+    font-size: 1rem !important;
+  }
+
+  .article-list .wp-block-post {
+    border-left-width: 3px;
+    padding: var(--wp--preset--spacing--40);
+  }
+
+  .article-list .wp-block-post-title {
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .article-list .wp-block-post-excerpt__more-link {
+    display: inline-block;
+    margin-top: var(--wp--preset--spacing--20);
+  }
+
+  .wp-block-query-pagination {
+    gap: var(--wp--preset--spacing--30);
+  }
+}
+
+@media (max-width: 380px) {
+  .index-hero .wp-block-heading {
+    font-size: 1.75rem !important;
+  }
+
+  .article-list .wp-block-post {
+    padding: var(--wp--preset--spacing--30);
+  }
+}
