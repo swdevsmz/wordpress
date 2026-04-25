@@ -187,6 +187,10 @@ podman compose exec db mariadb -u wp_user -pwp_password wordpress
 podman compose restart
 ```
 
+## Agent Skills
+
+Claude Code / Codex 共用の Agent Skills は `.ai/skills/` に置いています。構成、導入済み Skill、リンクの作り直し、更新方法は [docs/agent-skills.md](docs/agent-skills.md) を参照してください。
+
 ## VS Code でステップ実行デバッグ (Xdebug)
 
 `wordpress` コンテナに Xdebug をインストールしてあり、ホストの VS Code からステップ実行できます。

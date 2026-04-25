@@ -33,6 +33,7 @@ services:
     volumes:
       # コンテナ内のソースをカレントディレクトリの wordpress_data に同期
       - ./wordpress_data:/var/www/html
+      - ./xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
 
 volumes:
   db_data:

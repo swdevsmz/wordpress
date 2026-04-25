@@ -2,6 +2,11 @@
 .DS_Store
 Thumbs.db
 
+# Agent Skills の本体は .ai/skills に置く。
+# .claude/skills と .codex/skills はローカルのリンクなので追跡しない。
+.claude/skills/
+.codex/skills/
+
 # WordPress core (bind mount で自動展開されるため追跡しない)
 wordpress_data/*
 !wordpress_data/wp-content/

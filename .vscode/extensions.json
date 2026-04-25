@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "xdebug.php-debug",
+    "bmewburn.vscode-intelephense-client",
+    "johnbillion.vscode-wordpress-hooks",
+    "ms-azuretools.vscode-containers",
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": [
+    "felixfbecker.php-debug"
+  ]
+}
