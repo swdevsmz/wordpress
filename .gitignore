@@ -3,9 +3,11 @@
 Thumbs.db
 
 # Agent Skills の本体は .ai/skills に置く。
-# .claude/skills と .codex/skills はローカルのリンクなので追跡しない。
+# 各ツール用 skills はローカルのリンクなので追跡しない。
 .claude/skills/
 .codex/skills/
+.github/skills/
+.gemini/skills/
 
 # WordPress core (bind mount で自動展開されるため追跡しない)
 wordpress_data/*

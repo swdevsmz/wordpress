@@ -4,10 +4,12 @@
 
 - Claude Code 用: `.claude/skills` -> `.ai/skills`
 - Codex 用: `.codex/skills` -> `.ai/skills`
+- GitHub Copilot 用: `.github/skills` -> `.ai/skills`
+- Gemini 用: `.gemini/skills` -> `.ai/skills`
 
-Windows では管理者権限なしでディレクトリ symbolic link を作れないため、ローカルでは junction を使っています。Claude Code / Codex 側からは通常の `skills` ディレクトリとして読めます。確実に認識させるには、セッションを再起動してください。
+Windows では管理者権限なしでディレクトリ symbolic link を作れない場合があります。その場合、ローカルでは junction を使えます。各ツール側からは通常の `skills` ディレクトリとして読めます。確実に認識させるには、セッションを再起動してください。
 
-Git では `.ai/skills/` だけを管理対象にし、`.claude/skills/` と `.codex/skills/` は `.gitignore` で除外しています。
+Git では `.ai/skills/` だけを管理対象にし、各ツール用の `skills` リンクは `.gitignore` で除外しています。
 
 ## リンクを作り直す
 
@@ -15,16 +17,59 @@ macOS / Linux:
 
 ```bash
 mkdir -p .claude .codex
+mkdir -p .github .gemini
 ln -sfn ../.ai/skills .claude/skills
 ln -sfn ../.ai/skills .codex/skills
+ln -sfn ../.ai/skills .github/skills
+ln -sfn ../.ai/skills .gemini/skills
+```
+
+Windows PowerShell で symbolic link を作る場合:
+
+```powershell
+New-Item -ItemType Directory -Force .claude, .codex, .github, .gemini
+New-Item -ItemType SymbolicLink -Path .claude\skills -Target ..\.ai\skills
+New-Item -ItemType SymbolicLink -Path .codex\skills -Target ..\.ai\skills
+New-Item -ItemType SymbolicLink -Path .github\skills -Target ..\.ai\skills
+New-Item -ItemType SymbolicLink -Path .gemini\skills -Target ..\.ai\skills
+```
+
+Windows で symbolic link の権限がない場合は junction を使います:
+
+```powershell
+New-Item -ItemType Directory -Force .claude, .codex, .github, .gemini
+New-Item -ItemType Junction -Path .claude\skills -Target .ai\skills
+New-Item -ItemType Junction -Path .codex\skills -Target .ai\skills
+New-Item -ItemType Junction -Path .github\skills -Target .ai\skills
+New-Item -ItemType Junction -Path .gemini\skills -Target .ai\skills
+```
+
+GitHub Copilot は `.github/skills/<skill-name>/SKILL.md` を project skill として扱えます。Gemini は同じ Skill 標準の自動読込ではなく、`GEMINI.md` から `.ai/skills` の該当 `SKILL.md` を参照する運用です。
+
+## Agent 指示ファイル
+
+共通の Agent 指示は `AGENT.md` に置いています。
+
+- Claude Code 用: `CLAUDE.md` -> `AGENT.md`
+- Gemini 用: `GEMINI.md` -> `AGENT.md`
+- GitHub Copilot 用: `.github/copilot-instructions.md` -> `../AGENT.md`
+
+macOS / Linux:
+
+```bash
+mkdir -p .github
+ln -sfn AGENT.md CLAUDE.md
+ln -sfn AGENT.md GEMINI.md
+ln -sfn ../AGENT.md .github/copilot-instructions.md
 ```
 
 Windows PowerShell:
 
 ```powershell
-New-Item -ItemType Directory -Force .claude, .codex
-New-Item -ItemType Junction -Path .claude\skills -Target .ai\skills
-New-Item -ItemType Junction -Path .codex\skills -Target .ai\skills
+New-Item -ItemType Directory -Force .github
+New-Item -ItemType SymbolicLink -Path CLAUDE.md -Target AGENT.md
+New-Item -ItemType SymbolicLink -Path GEMINI.md -Target AGENT.md
+New-Item -ItemType SymbolicLink -Path .github\copilot-instructions.md -Target ..\AGENT.md
 ```
 
 ## 導入済み
