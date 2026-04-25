@@ -1,0 +1,27 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# WordPress core (bind mount で自動展開されるため追跡しない)
+wordpress_data/*
+!wordpress_data/wp-content/
+
+wordpress_data/wp-content/*
+!wordpress_data/wp-content/themes/
+!wordpress_data/wp-content/plugins/
+
+# 公式同梱のテーマ/プラグインは追跡しない (自作のみ追跡)
+wordpress_data/wp-content/themes/twenty*
+wordpress_data/wp-content/plugins/akismet/
+wordpress_data/wp-content/plugins/hello.php
+wordpress_data/wp-content/plugins/index.php
+wordpress_data/wp-content/themes/index.php
+
+# uploads / languages はサーバー側で生成
+wordpress_data/wp-content/uploads/
+wordpress_data/wp-content/languages/
+wordpress_data/wp-content/upgrade/
+wordpress_data/wp-content/upgrade-temp-backup/
+
+# wp-config.php は環境変数生成なので追跡しない
+wordpress_data/wp-config.php
