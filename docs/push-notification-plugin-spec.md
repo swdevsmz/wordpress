@@ -435,11 +435,398 @@ manage_options
 
 ## 将来追加したい機能
 
-- FCM トークン保存
-- Flutter アプリ向け通知 API
 - 通知履歴
 - 投稿ごとの通知送信 ON/OFF
 - カテゴリー別購読
 - カスタム投稿タイプ対応
 - WooCommerce や会員サイトとの連携
 - 通知クリック数の計測
+
+## FCM 版 (フェーズ 2)
+
+Flutter アプリや、Web Push が動作しない環境（Flutter WebView、一部の旧 iOS など）に通知を届けるための、Firebase Cloud Messaging を使った後続フェーズの仕様です。
+
+初期実装の Web Push は残したまま、送信方式を増やす形で追加します。WordPress 側の購読者・投稿公開フック・通知送信処理は共通化し、送信アダプタだけを差し替えられる構成にします。
+
+### 目的
+
+- Flutter アプリ (iOS / Android) のネイティブ Push 通知に対応する
+- Web Push が使えない環境向けの代替経路を用意する
+- 既存の Web Push 経路と並行運用できる構成にする
+
+### 用語
+
+#### FCM
+
+正式名称:
+
+```text
+Firebase Cloud Messaging
+```
+
+`FCM` は、Google が提供するクロスプラットフォーム向けの Push 通知配信サービスです。
+
+このプラグインでは、Flutter アプリや Web クライアントから FCM 登録トークンを取得し、WordPress に保存して、投稿公開時にそのトークン宛てへ通知を送信する用途で使います。
+
+#### FCM 登録トークン
+
+`FCM 登録トークン` は、各端末・各アプリインストールごとに発行される識別子です。Web Push の `endpoint` に相当する役割を持ちます。
+
+トークンはアプリ再インストールやブラウザの状態変化で更新されることがあります。送信失敗時は無効トークンとして扱い、購読を `inactive` にします。
+
+#### サービスアカウント
+
+`サービスアカウント` は、Google Cloud のリソースに対してプログラムからアクセスするための認証主体です。
+
+このプラグインでは、FCM HTTP v1 API を呼び出すための OAuth2 アクセストークンを発行する目的で使います。サービスアカウント鍵 (JSON) は秘密情報として WordPress 側で安全に保管します。
+
+#### FCM HTTP v1 API
+
+`FCM HTTP v1 API` は、現行の FCM 送信用エンドポイントです。
+
+旧 Legacy API はサポート終了しているため、新規実装では HTTP v1 のみ対応します。1 リクエスト 1 トークンが基本ですが、トピックや条件指定、マルチキャスト送信にも対応します。
+
+```text
+POST https://fcm.googleapis.com/v1/projects/{project_id}/messages:send
+```
+
+リクエストには `Bearer` 形式の OAuth2 アクセストークンを `Authorization` ヘッダーに付けます。
+
+#### APNs
+
+正式名称:
+
+```text
+Apple Push Notification service
+```
+
+`APNs` は、Apple が提供する iOS / iPadOS / macOS 向けの Push 通知配信サービスです。
+
+iOS 向け FCM 送信は、最終的に APNs を経由して端末へ届きます。FCM コンソールに APNs 認証鍵 (`.p8`) または証明書を登録することで連携します。
+
+iOS の本番運用には Apple Developer Program (年 99 USD) のメンバーシップが別途必要です。FCM 自体は無料です。
+
+### 料金前提
+
+- FCM の通知配信そのものは無料 (Firebase Spark プランで上限なし)
+- BigQuery エクスポートや Cloud Functions を併用しない限り課金は発生しない
+- iOS 向け配信には Apple Developer Program (年 99 USD) のメンバーシップが必要
+
+### Web Push との関係
+
+Web Push は廃止しません。両方を同時に運用できる構成にします。
+
+| 観点 | Web Push (フェーズ 1) | FCM (フェーズ 2) |
+| ---- | --------------------- | ---------------- |
+| 主な配信先 | 通常ブラウザ | Flutter アプリ、FCM 対応ブラウザ |
+| サーバー鍵 | VAPID | サービスアカウント鍵 |
+| 送信先識別子 | endpoint | FCM 登録トークン |
+| 送信方式 | minishlink/web-push | FCM HTTP v1 API |
+| Apple Developer Program | 不要 | iOS 配信時に必要 |
+| 設定の複雑さ | 鍵生成のみ | Firebase プロジェクト作成 + サービスアカウント発行 |
+
+### 設計方針
+
+- 送信処理は `My_Push_Sender_Interface` で抽象化する
+- 既存の Web Push 送信は `My_Push_Web_Push_Sender` として実装する
+- FCM 送信は `My_Push_FCM_Sender` として追加する
+- 投稿公開フックや管理画面のテスト送信は、設定された送信方式すべてに通知を流す
+- 各送信方式は ON/OFF を独立して切り替えられる
+
+### ディレクトリ構成 (フェーズ 2 で追加するファイル)
+
+```text
+wordpress_data/wp-content/plugins/my-push-notification-plugin/
+├── includes/
+│   ├── interface-sender.php
+│   ├── class-web-push-sender.php
+│   ├── class-fcm-sender.php
+│   ├── class-fcm-token-repository.php
+│   └── class-fcm-oauth.php
+└── assets/
+    └── js/
+        └── fcm-subscribe.js
+```
+
+`class-web-push-service.php` は `class-web-push-sender.php` にリネームし、`My_Push_Sender_Interface` を実装する形に整えます。互換のため旧クラス名はエイリアスを残します。
+
+### データベース
+
+#### 既存の Web Push 購読テーブル
+
+`{$wpdb->prefix}my_push_subscribers` はそのまま維持します。トランスポート種別を区別するために、次のカラムを追加します。
+
+| カラム | 型 | 内容 |
+| ------ | -- | ---- |
+| `transport` | VARCHAR(20) | `web_push` または `fcm` |
+
+既存レコードはマイグレーション時に `web_push` で埋めます。
+
+#### FCM トークン用テーブル
+
+FCM 固有のフィールドが多いため、専用テーブルを別に作ります。
+
+テーブル名:
+
+```text
+{$wpdb->prefix}my_push_fcm_tokens
+```
+
+カラム:
+
+| カラム | 型 | 内容 |
+| ------ | -- | ---- |
+| `id` | BIGINT UNSIGNED | 主キー |
+| `token_hash` | CHAR(64) | FCM 登録トークンの SHA-256 ハッシュ。重複防止用 |
+| `token` | TEXT | FCM 登録トークン |
+| `platform` | VARCHAR(20) | `android` / `ios` / `web` / `unknown` |
+| `app_id` | VARCHAR(190) NULL | クライアント識別子 (Flutter アプリのバンドル ID など) |
+| `user_id` | BIGINT UNSIGNED NULL | ログインユーザーの場合のユーザー ID |
+| `device_label` | TEXT NULL | デバッグ用の識別ラベル |
+| `status` | VARCHAR(20) | `active` / `inactive` |
+| `created_at` | DATETIME | 作成日時 |
+| `updated_at` | DATETIME | 更新日時 |
+
+トークンが再登録された場合は、既存レコードを `active` に更新します。送信失敗で `UNREGISTERED` / `INVALID_ARGUMENT` を受け取った場合は `inactive` に変更します。
+
+### 設定項目
+
+管理画面の `設定 > Push 通知` に FCM セクションを追加します。
+
+| 項目 | option 名 | 内容 |
+| ---- | --------- | ---- |
+| FCM 有効化 | `my_push_fcm_enabled` | FCM 経路を使うかどうか |
+| Firebase プロジェクト ID | `my_push_fcm_project_id` | HTTP v1 API のパスに使う |
+| サービスアカウント JSON | `my_push_fcm_service_account` | 秘密情報として保存 |
+| FCM ウェブ用 VAPID 公開鍵 | `my_push_fcm_web_vapid_public` | FCM JS SDK が `getToken()` で使う |
+| アクセストークンキャッシュ | `my_push_fcm_oauth_cache` | OAuth2 トークンの一時キャッシュ |
+
+サービスアカウント JSON は管理画面に値そのものを表示しません。「設定済み」「未設定」の表示と、貼り付け用テキストエリア (空欄=変更なし) のみ提供します。
+
+option 値は `wp_unslash()` で処理し、`update_option()` でそのまま保存します。値の暗号化は WordPress コアに該当機能がないため、最低限の対策として `wp_options` の `autoload` を `no` に設定します。
+
+### REST API
+
+namespace は既存と同じです。
+
+```text
+my-push/v1
+```
+
+追加するエンドポイント:
+
+| メソッド | パス | 用途 |
+| -------- | ---- | ---- |
+| `POST` | `/fcm/register` | FCM 登録トークンを保存する |
+| `POST` | `/fcm/unregister` | FCM 登録トークンを無効化する |
+| `GET` | `/fcm/web-config` | FCM ウェブ向け公開設定を返す |
+
+#### `/fcm/register` リクエスト例
+
+```json
+{
+  "token": "fcm-registration-token",
+  "platform": "android",
+  "app_id": "com.example.app",
+  "device_label": "Pixel 8 (debug)"
+}
+```
+
+セキュリティ:
+
+- フロント / WebView 経由は WordPress nonce を使う
+- ネイティブアプリ経由は Application Password または独自の API キー方式を使う (フェーズ 2 で別途検討)
+- `token` は空でないこと、`platform` は許可リストのみを受け付けること
+- `app_id` は `sanitize_text_field()` を通す
+- 送信元 IP やユーザー単位のレート制限を `transient` で簡易実装する
+
+`/fcm/web-config` は VAPID 公開鍵と Firebase ウェブ設定 (`apiKey` / `messagingSenderId` / `appId` 等の公開可能な値) を返します。秘密情報は含めません。
+
+### シーケンス図
+
+#### Flutter アプリでのトークン登録
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant App as Flutterアプリ
+    participant FCM as FCM (Google)
+    participant WP as WordPressプラグイン
+    participant DB as WordPress DB
+
+    User->>App: アプリ起動
+    App->>App: 通知許可をOSに要求
+    App->>FCM: getToken()でトークン取得
+    FCM-->>App: FCM登録トークン
+    App->>WP: トークン送信<br/>POST /wp-json/my-push/v1/fcm/register
+    WP->>WP: 認証と入力値を検証
+    WP->>DB: token / platform / user_idを保存
+    DB-->>WP: 保存完了
+    WP-->>App: 登録成功を返す
+    App-->>User: 通知購読中として表示
+```
+
+#### 投稿公開時の FCM 通知送信
+
+```mermaid
+sequenceDiagram
+    participant Admin as 管理者
+    participant WP as WordPress
+    participant Plugin as Push通知プラグイン
+    participant DB as WordPress DB
+    participant OAuth as Google OAuth2
+    participant FCM as FCM HTTP v1 API
+    participant Device as 購読端末
+
+    Admin->>WP: 投稿を公開する
+    WP->>Plugin: transition_post_statusフックを実行
+    Plugin->>Plugin: 投稿タイプと公開状態を確認
+    Plugin->>DB: activeなFCMトークンを取得
+    DB-->>Plugin: トークン一覧を返す
+    Plugin->>OAuth: アクセストークンを要求<br/>(キャッシュがあれば省略)
+    OAuth-->>Plugin: Bearerアクセストークン
+    Plugin->>Plugin: メッセージペイロードを作成
+    loop トークンごと
+        Plugin->>FCM: POST /v1/projects/{id}/messages:send
+        alt 成功
+            FCM-->>Device: 通知配信
+            FCM-->>Plugin: 200 OK
+        else 無効トークン
+            FCM-->>Plugin: 404 UNREGISTERED / 400 INVALID_ARGUMENT
+            Plugin->>DB: トークンをinactiveに更新
+        end
+    end
+```
+
+### OAuth2 アクセストークンの取り扱い
+
+- サービスアカウント JSON 内の秘密鍵で JWT を署名し、Google の `oauth2.googleapis.com/token` からアクセストークンを取得する
+- スコープは `https://www.googleapis.com/auth/firebase.messaging`
+- アクセストークンは `transient` (`my_push_fcm_oauth_cache`) に有効期限の少し手前まで保存する (例: 50 分)
+- 取得失敗時は `WP_Error` を返し、管理画面に通知する
+
+PHP ライブラリは `google/auth` または `firebase/php-jwt` の利用を想定します。
+
+### Composer 依存
+
+フェーズ 2 で追加するパッケージ:
+
+```text
+google/auth
+guzzlehttp/guzzle
+```
+
+`guzzlehttp/guzzle` は WordPress の `wp_remote_post()` で代替できる場合は省略します。WordPress 標準の HTTP API を優先します。
+
+### 投稿公開時の通知
+
+利用するフックは Web Push と共通です。
+
+```php
+transition_post_status
+```
+
+送信フローは次のとおり一本化します。
+
+1. 投稿が新規公開され、自動通知設定が有効
+2. 共通ペイロードを生成 (`title` / `body` / `url` / `icon`)
+3. 有効な送信アダプタすべてに対してループ
+4. 各アダプタが自分のトランスポート用に整形して送信
+
+FCM のメッセージは `webpush` / `android` / `apns` フィールドで個別に上書きします。
+
+```json
+{
+  "message": {
+    "token": "fcm-registration-token",
+    "notification": { "title": "...", "body": "..." },
+    "data": { "url": "https://example.com/post/123" },
+    "webpush": { "fcm_options": { "link": "https://example.com/post/123" } },
+    "android": { "priority": "HIGH" },
+    "apns": {
+      "headers": { "apns-priority": "10" },
+      "payload": { "aps": { "sound": "default" } }
+    }
+  }
+}
+```
+
+### Flutter / WebView 連携
+
+フェーズ 2 では次の 2 経路を想定します。
+
+| 経路 | クライアント | 認証 | 備考 |
+| ---- | ------------ | ---- | ---- |
+| Flutter ネイティブ | `firebase_messaging` パッケージ | Application Password | 推奨 |
+| WebView JS Bridge | WebView 内の JS から Flutter 側へ FCM トークン要求を委譲 | nonce | 既存ページに最小変更で組み込む場合 |
+
+WebView 経由では Service Worker が動かないことがあるため、購読 UI はネイティブの通知許可フローに委譲し、WordPress の REST API へはトークンのみを送る前提にします。
+
+### 管理画面
+
+既存の設定ページに FCM セクションを追加します。
+
+操作:
+
+- FCM 有効化トグル
+- Firebase プロジェクト ID 入力
+- サービスアカウント JSON の貼り付け / 削除
+- ウェブ用 VAPID 公開鍵入力
+- FCM 登録トークン数の表示
+- FCM 経路でのテスト通知送信
+
+権限は既存と同じく `manage_options` を要求します。
+
+### セキュリティ方針
+
+Web Push と共通の方針に加えて、FCM 用に次を追加します。
+
+- サービスアカウント JSON は `wp_options` の `autoload=no` で保存し、ログ出力を避ける
+- アクセストークンは `transient` のみで永続化しない
+- ネイティブアプリからの REST API には Application Password または独自トークンによる認証を必須にする
+- 送信失敗時のレスポンスをログに出すときはトークン本体をマスクする
+- `/fcm/web-config` のレスポンスには秘密情報を絶対に含めない
+
+### テスト計画
+
+#### PHP
+
+- `My_Push_Sender_Interface` の実装が Web Push / FCM 両方で揃っていること
+- `/fcm/register` が正しいトークンを保存すること
+- `/fcm/unregister` がトークンを無効化すること
+- OAuth2 アクセストークン取得の成否で送信結果が分岐すること
+- FCM 応答 `UNREGISTERED` / `INVALID_ARGUMENT` でトークンが `inactive` になること
+- 投稿公開時に Web Push と FCM が同時に呼ばれること
+
+#### モバイル
+
+- Android 実機で FCM 通知が表示されること
+- iOS 実機 (Apple Developer Program 加入済み) で FCM 通知が表示されること
+- アプリ再インストール後にトークンが更新され、再登録されること
+- 通知タップで対象 URL に遷移すること
+
+#### Web (FCM JS SDK)
+
+- `firebase-messaging-sw.js` が登録できること
+- FCM 用の Service Worker と既存の Web Push Service Worker が衝突しないこと
+
+### 実装ステップ
+
+1. `My_Push_Sender_Interface` を定義し、既存の Web Push 送信をリネーム / 実装移行する
+2. 購読テーブルに `transport` カラムを追加する DB マイグレーションを書く
+3. `my_push_fcm_tokens` テーブルを作成する
+4. 設定画面に FCM セクションを追加する
+5. `/fcm/register`, `/fcm/unregister`, `/fcm/web-config` を実装する
+6. `class-fcm-oauth.php` で OAuth2 アクセストークン取得を実装する
+7. `class-fcm-sender.php` で FCM HTTP v1 API 呼び出しを実装する
+8. `transition_post_status` 経由で送信アダプタすべてに通知を流す
+9. 管理画面の FCM テスト通知を追加する
+10. Android / iOS 実機で動作確認する
+
+### このフェーズで作らない機能
+
+- FCM トピック購読 / セグメント配信
+- BigQuery / Cloud Functions 連携
+- 通知履歴画面
+- アプリ内メッセージ (In-App Messaging)
+- リッチ通知 (画像、アクションボタン) のテンプレート管理

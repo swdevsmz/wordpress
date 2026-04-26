@@ -11,8 +11,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 global $wpdb;
 
-$table_name = $wpdb->prefix . 'my_push_subscribers';
-$wpdb->query( "DROP TABLE IF EXISTS {$table_name}" );
+$subscribers = $wpdb->prefix . 'my_push_subscribers';
+$wpdb->query( "DROP TABLE IF EXISTS {$subscribers}" );
 
 delete_option( 'my_push_vapid_public_key' );
 delete_option( 'my_push_vapid_private_key' );
