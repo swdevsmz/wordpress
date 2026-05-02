@@ -13,6 +13,44 @@ Windows 11 WSL2 (Ubuntu 24.04) 上の Docker + VS Code Dev Container で WordPre
 - DB データ: named volume `db_data`
 - Xdebug ポート: `9003`
 
+## 事前準備
+
+### 1. WSL2 + Ubuntu 24.04 のインストール
+
+PowerShell（管理者）で実行します。
+
+```powershell
+wsl --install -d Ubuntu-24.04
+```
+
+インストール後、Ubuntu を起動してユーザー名・パスワードを設定してください。
+
+### 2. Docker Engine + Docker Compose のインストール
+
+Ubuntu 24.04 のターミナルで実行します。
+
+```bash
+# 公式インストールスクリプトで Docker Engine をインストール
+curl -fsSL https://get.docker.com | sh
+
+# 現在のユーザーを docker グループに追加（sudo なしで使えるようにする）
+sudo usermod -aG docker $USER
+# → 設定を反映するため一度ターミナルを閉じて開き直す
+
+# インストールスクリプトが systemd 経由でデーモンを自動起動・有効化するため
+# 別途 start コマンドは不要。念のため動作確認だけ行う
+docker compose version
+```
+
+### 3. VS Code の準備
+
+1. [Visual Studio Code](https://code.visualstudio.com/) をホスト（Windows）にインストール
+2. VS Code の拡張機能から **Dev Containers** (`ms-vscode-remote.remote-containers`) をインストール
+3. Ubuntu上の任意の場所に当リポジトリをクローン
+4. VS Codeからクローンしたリポジトリを開く
+
+```bash
+
 ## 起動手順
 
 ### 1. `.env` を用意する
