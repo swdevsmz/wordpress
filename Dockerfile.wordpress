@@ -1,0 +1,25 @@
+FROM docker.io/library/wordpress:latest
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        default-mysql-client \
+        git \
+        gnupg \
+        less \
+        nodejs \
+        npm \
+        unzip \
+        vim \
+    && npm install -g @openai/codex \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug
+
+RUN curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /usr/local/bin/wp \
+    && chmod +x /usr/local/bin/wp \
+    && wp --info --allow-root
+
+COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini

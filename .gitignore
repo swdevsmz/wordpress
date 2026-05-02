@@ -2,6 +2,8 @@
 .DS_Store
 Thumbs.db
 
+# 環境設定・シークレット（.env.example はテンプレートとして追跡する）
+.env
 # Agent Skills の本体は .ai/skills に置く。
 # 各ツール用 skills はローカルのリンクなので追跡しない。
 .claude/skills/

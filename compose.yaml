@@ -1,39 +1,75 @@
 services:
+  # -------------------------------------------------------
+  # db サービス: MariaDB データベース
+  # WordPress のデータを永続化する。
+  # -------------------------------------------------------
   db:
-    image: mariadb:10.11
+    image: docker.io/library/mariadb:10.11
     restart: always
+    # パスワード等のシークレットは .env から読み込む。
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wp_user
-      MYSQL_PASSWORD: wp_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # DB の root パスワード
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wordpress} # 使用するデータベース名
+      MYSQL_USER: ${MYSQL_USER:-wp_user} # WordPress 用 DB ユーザー
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # 上記ユーザーのパスワード
     volumes:
+      # DB データを名前付きボリュームで永続化する。
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      # DB が接続可能かつ InnoDB が初期化済みであることを確認してから
+      # wordpress サービスを起動するためのヘルスチェック。
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # -------------------------------------------------------
+  # wordpress サービス: PHP + Apache + WordPress 本体
+  # Dockerfile.wordpress でカスタムイメージをビルドして使用する。
+  # -------------------------------------------------------
   wordpress:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.wordpress
     restart: always
     depends_on:
       db:
+        # db のヘルスチェックが HEALTHY になってから起動する。
         condition: service_healthy
     ports:
+      # ホストの 8080 番ポートをコンテナの 80 番（Apache）にフォワード。
       - "8080:80"
     extra_hosts:
+      # コンテナ内から host.containers.internal でホストマシンにアクセス可能にする。
       - "host.containers.internal:host-gateway"
+    # パスワード等のシークレットは .env から読み込む。
+    env_file:
+      - .env
     environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wp_user
-      WORDPRESS_DB_PASSWORD: wp_password
-      WORDPRESS_DB_NAME: wordpress
+      HOME: /root
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST:-db} # 接続先 DB ホスト（サービス名）
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wp_user} # DB 接続ユーザー
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD} # DB 接続パスワード
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-wordpress} # 接続先データベース名
+      WP_URL: ${WP_URL:-http://localhost:8080} # WordPress サイト URL
+      WP_TITLE: ${WP_TITLE:-CloudWorks WordPress} # サイトタイトル
+      WP_ADMIN_USER: ${WP_ADMIN_USER:-admin} # 管理者ユーザー名
+      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD} # 管理者パスワード
+      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL:-admin@example.com} # 管理者メールアドレス
+      WP_INIT_WAIT_SECONDS: ${WP_INIT_WAIT_SECONDS:-60} # 初期化タイムアウト（秒）
     volumes:
-      # コンテナ内のソースをカレントディレクトリの wordpress_data に同期
+      # Codex の認証情報・設定をコンテナ内の root ユーザーと共有する。
+      - ${HOME}/.codex:/root/.codex
+      # VS Code devcontainer としてワークスペースをマウントする。
+      - .:/workspaces/wordpress
+      # WordPress の実行ファイル群（wp-content 含む）をホストと共有する。
       - ./wordpress_data:/var/www/html
+      # Xdebug の設定ファイルを読み取り専用でマウントする。
       - ./xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
 
 volumes:
+  # db サービスが使用する永続ボリューム。
+  # コンテナを再作成しても DB データが消えない。
   db_data:
