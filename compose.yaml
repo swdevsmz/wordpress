@@ -9,6 +9,8 @@ services:
     # パスワード等のシークレットは .env から読み込む。
     env_file:
       - .env
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # DB の root パスワード
       MYSQL_DATABASE: ${MYSQL_DATABASE:-wordpress} # 使用するデータベース名
@@ -42,8 +44,8 @@ services:
       # ホストの 8080 番ポートをコンテナの 80 番（Apache）にフォワード。
       - "8080:80"
     extra_hosts:
-      # コンテナ内から host.containers.internal でホストマシンにアクセス可能にする。
-      - "host.containers.internal:host-gateway"
+      # コンテナ内から host.docker.internal でホストマシンにアクセス可能にする。
+      - "host.docker.internal:host-gateway"
     # パスワード等のシークレットは .env から読み込む。
     env_file:
       - .env
@@ -53,21 +55,10 @@ services:
       WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wp_user} # DB 接続ユーザー
       WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD} # DB 接続パスワード
       WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-wordpress} # 接続先データベース名
-      WP_URL: ${WP_URL:-http://localhost:8080} # WordPress サイト URL
-      WP_TITLE: ${WP_TITLE:-CloudWorks WordPress} # サイトタイトル
-      WP_ADMIN_USER: ${WP_ADMIN_USER:-admin} # 管理者ユーザー名
-      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD} # 管理者パスワード
-      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL:-admin@example.com} # 管理者メールアドレス
-      WP_INIT_WAIT_SECONDS: ${WP_INIT_WAIT_SECONDS:-60} # 初期化タイムアウト（秒）
     volumes:
-      # Codex の認証情報・設定をコンテナ内の root ユーザーと共有する。
-      - ${HOME}/.codex:/root/.codex
-      # VS Code devcontainer としてワークスペースをマウントする。
-      - .:/workspaces/wordpress
-      # WordPress の実行ファイル群（wp-content 含む）をホストと共有する。
+      # WordPress の実行ファイル群をホストと共有する。
+      # ここは wordpress_data だけを bind mount して、他のファイルはイメージに持たせる。
       - ./wordpress_data:/var/www/html
-      # Xdebug の設定ファイルを読み取り専用でマウントする。
-      - ./xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
 
 volumes:
   # db サービスが使用する永続ボリューム。

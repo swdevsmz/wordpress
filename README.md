@@ -1,6 +1,6 @@
 # WordPress 開発環境
 
-Windows 11 WSL2 (Ubuntu 24.04) 上の Docker + VS Code Dev Container で WordPress + MariaDB を動かす構成です。
+Windows 11 WSL2 (Ubuntu 24.04) 上の Docker Compose で WordPress + MariaDB を動かす構成です。
 
 ## 構成
 
@@ -11,6 +11,7 @@ Windows 11 WSL2 (Ubuntu 24.04) 上の Docker + VS Code Dev Container で WordPre
 
 - WordPress ファイル: `./wordpress_data`（ホスト bind mount → PHP を直接編集可）
 - DB データ: named volume `db_data`
+- Xdebug 設定: `xdebug.ini` はイメージビルド時にコピーする
 - Xdebug ポート: `9003`
 
 ## 事前準備
@@ -25,31 +26,21 @@ wsl --install -d Ubuntu-24.04
 
 インストール後、Ubuntu を起動してユーザー名・パスワードを設定してください。
 
-### 2. Docker Engine + Docker Compose のインストール
+### 2. Docker の準備
 
 Ubuntu 24.04 のターミナルで実行します。
 
 ```bash
-# 公式インストールスクリプトで Docker Engine をインストール
-curl -fsSL https://get.docker.com | sh
-
-# 現在のユーザーを docker グループに追加（sudo なしで使えるようにする）
-sudo usermod -aG docker $USER
-# → 設定を反映するため一度ターミナルを閉じて開き直す
-
-# インストールスクリプトが systemd 経由でデーモンを自動起動・有効化するため
-# 別途 start コマンドは不要。念のため動作確認だけ行う
-docker compose version
+# Windows 側で Docker Desktop を起動しておく
+docker version
 ```
 
 ### 3. VS Code の準備
 
 1. [Visual Studio Code](https://code.visualstudio.com/) をホスト（Windows）にインストール
-2. VS Code の拡張機能から **Dev Containers** (`ms-vscode-remote.remote-containers`) をインストール
+2. 必要なら **PHP Debug** (`xdebug.php-debug`) を入れる
 3. Ubuntu上の任意の場所に当リポジトリをクローン
 4. VS Codeからクローンしたリポジトリを開く
-
-```bash
 
 ## 起動手順
 
@@ -60,12 +51,17 @@ cp .env.example .env
 # .env を開いてパスワード等を設定する
 ```
 
-### 2. Dev Container を開く
+### 2. Compose で起動する
 
-VS Code でリポジトリを開き、コマンドパレットから **「Dev Containers: Reopen in Container」** を選択します。
-初回はイメージのビルドに数分かかります。起動後、WordPress の初期インストールまで自動で完了します。
+Ubuntu のターミナルでリポジトリを開き、次を実行します。
 
-管理画面: <http://localhost:8080/wp-admin>（認証情報は `.env` の `WP_ADMIN_USER` / `WP_ADMIN_PASSWORD` を参照）
+```bash
+docker compose up --build
+```
+
+初回はイメージのビルドに数分かかります。`wordpress_data` が空なら、公式 entrypoint が WordPress 本体をそこへコピーします。あとはブラウザで初期セットアップ画面を開いてください。
+
+管理画面: <http://localhost:8080/wp-admin>
 
 ## 停止・削除
 

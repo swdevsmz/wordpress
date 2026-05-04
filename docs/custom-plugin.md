@@ -1,6 +1,6 @@
 # WordPress カスタムプラグインの作り方
 
-このドキュメントでは、本リポジトリ ([README.md](../README.md)) の Podman Compose 環境を前提に、自作プラグインを作る手順をまとめます。
+このドキュメントでは、本リポジトリ ([README.md](../README.md)) の Docker Compose 環境を前提に、自作プラグインを作る手順をまとめます。
 
 - 編集対象: `wordpress_data/wp-content/plugins/<プラグイン名>/`
 - 同期対象: [deploy.sh](../deploy.sh) の `TARGETS` に追加すれば本番に rsync される
@@ -567,7 +567,7 @@ define( 'WP_DEBUG_DISPLAY', false );
 ログ確認:
 
 ```bash
-podman compose exec wordpress tail -f /var/www/html/wp-content/debug.log
+docker compose exec wordpress tail -f /var/www/html/wp-content/debug.log
 ```
 
 PHP 側からの出力:
@@ -582,16 +582,16 @@ WordPress 公式コンテナには WP-CLI が同梱されています。
 
 ```bash
 # プラグイン一覧
-podman compose exec wordpress wp plugin list --allow-root
+docker compose exec wordpress wp plugin list --allow-root
 
 # 有効化
-podman compose exec wordpress wp plugin activate my-api-plugin --allow-root
+docker compose exec wordpress wp plugin activate my-api-plugin --allow-root
 
 # REST ルート一覧
-podman compose exec wordpress wp rest route list --allow-root
+docker compose exec wordpress wp rest route list --allow-root
 
 # クエリのデバッグ
-podman compose exec wordpress wp eval 'var_dump( get_option( "my_api_plugin_api_key" ) );' --allow-root
+docker compose exec wordpress wp eval 'var_dump( get_option( "my_api_plugin_api_key" ) );' --allow-root
 ```
 
 ### 5.3 翻訳対応
@@ -671,7 +671,7 @@ add_action( 'plugins_loaded', array( My_Api_Plugin::class, 'init' ) );
 ### Composer を使う場合
 
 ```bash
-podman compose exec wordpress bash -lc "cd /var/www/html/wp-content/plugins/my-api-plugin && composer init"
+docker compose exec wordpress bash -lc "cd /var/www/html/wp-content/plugins/my-api-plugin && composer init"
 ```
 
 メイン PHP の冒頭で:

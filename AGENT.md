@@ -1,6 +1,6 @@
 # Agent Instructions
 
-このリポジトリは、Podman Compose 上の WordPress を使って **カスタムテーマ** と **カスタムプラグイン** を作るためのワークスペースです。
+このリポジトリは、Docker Compose 上の WordPress を使って **カスタムテーマ** と **カスタムプラグイン** を作るためのワークスペースです。
 
 ## 目的と編集対象
 
@@ -66,16 +66,16 @@ GitHub 作業:
 - WordPress URL: `http://localhost:8080`
 - Compose service: `wordpress`, `db`
 - ソース bind mount: `wordpress_data:/var/www/html`
-- Xdebug 設定: `xdebug.ini`
+- Xdebug 設定: `xdebug.ini` はイメージにコピー済み
 - VS Code debug 設定: `.vscode/launch.json`
 
 よく使う確認コマンド:
 
 ```bash
-podman compose ps
-podman compose exec wordpress php -v
-podman compose exec wordpress php -l /var/www/html/wp-content/plugins/my-api-plugin/my-api-plugin.php
-podman compose logs -f wordpress
+docker compose ps
+docker compose exec wordpress php -v
+docker compose exec wordpress php -l /var/www/html/wp-content/plugins/my-api-plugin/my-api-plugin.php
+docker compose logs -f wordpress
 ```
 
 ## 実装時の注意

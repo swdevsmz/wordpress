@@ -1,6 +1,6 @@
 # WordPress カスタムテーマの作り方
 
-このドキュメントでは、本リポジトリ ([README.md](../README.md)) の Podman Compose 環境を前提に、自作テーマを作る手順をまとめます。
+このドキュメントでは、本リポジトリ ([README.md](../README.md)) の Docker Compose 環境を前提に、自作テーマを作る手順をまとめます。
 
 - 編集対象: `wordpress_data/wp-content/themes/<テーマ名>/`
 - 同期対象: [deploy.sh](../deploy.sh) の `TARGETS` に追加すれば本番に rsync される
@@ -399,7 +399,7 @@ define( 'WP_DEBUG_DISPLAY', false ); // 画面には出さない
 ログ確認:
 
 ```bash
-podman compose exec wordpress tail -f /var/www/html/wp-content/debug.log
+docker compose exec wordpress tail -f /var/www/html/wp-content/debug.log
 ```
 
 PHP コードからログを吐く:
@@ -421,7 +421,7 @@ add_action( 'pre_get_posts', function ( $query ) {
 ### 4.3 親テーマファイルの場所を素早く確認
 
 ```bash
-podman compose exec wordpress ls /var/www/html/wp-content/themes/twentytwentyfive/
+docker compose exec wordpress ls /var/www/html/wp-content/themes/twentytwentyfive/
 ```
 
 ### 4.4 テーマ有効化後にブラウザに反映されない時
